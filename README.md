@@ -38,3 +38,7 @@ Output lands in `./dist`.
 - "Block other domains" allows the domain plus its subdomains. Off-domain navigation, redirects, and popups get cancelled, user stays on the current page.
 - OAuth logins (Google, Facebook, etc.) will break when blocking is on, since they hop to another domain.
 - Work files live in `~/.appweb/work`, safe to delete.
+
+## License
+
+Apache License 2.0
