@@ -4,6 +4,14 @@ Turn any website into a single-site app. CLI only. Outputs `.exe` (Windows) and 
 
 ## Install
 
+### Clone This Repository First
+
+```
+git clone https://github.com/DelfinIbnKadafi/AppWeb.git
+```
+
+### In the AppWeb directory
+
 ```
 npm install
 npm link        # gives you the `appweb` command
