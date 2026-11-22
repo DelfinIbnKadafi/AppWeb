@@ -1,11 +1,15 @@
-const { app, BaseWindow, WebContentsView, Menu, ipcMain, clipboard } = require("electron");
+const { app, BaseWindow, WebContentsView, Menu, ipcMain, clipboard, nativeImage } = require("electron");
+const fs = require("fs");
 const path = require("path");
 const config = require("./app.config.json");
 
 const HEADER_H = 40;
+const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+
 let win = null;
 let header = null;
 let content = null;
+let zoom = 1;
 
 // host check, subdomains are cool too
 function isAllowed(url) {
@@ -18,6 +22,63 @@ function isAllowed(url) {
     return false;
   }
 }
+
+// ---- zoom ----
+
+const zoomFile = () => path.join(app.getPath("userData"), "zoom.json");
+
+function loadZoom() {
+  try {
+    const z = JSON.parse(fs.readFileSync(zoomFile(), "utf8")).zoom;
+    if (typeof z === "number" && z >= 0.5 && z <= 3) zoom = z;
+  } catch {
+    // first run, no file, whatever
+  }
+}
+
+function saveZoom() {
+  try {
+    fs.writeFileSync(zoomFile(), JSON.stringify({ zoom }));
+  } catch {
+    // not worth crashing over
+  }
+}
+
+// dir: 1 = in, -1 = out, 0 = reset
+function stepZoom(dir) {
+  if (dir === 0) {
+    zoom = 1;
+  } else {
+    let idx = 0;
+    ZOOM_STEPS.forEach((s, i) => {
+      if (Math.abs(s - zoom) < Math.abs(ZOOM_STEPS[idx] - zoom)) idx = i;
+    });
+    zoom = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, idx + dir))];
+  }
+  saveZoom();
+  content.webContents.setZoomFactor(zoom);
+  sendState();
+}
+
+// ctrl +, ctrl -, ctrl 0
+function hookZoomKeys(wc) {
+  wc.on("before-input-event", (e, input) => {
+    if (input.type !== "keyDown" || !(input.control || input.meta)) return;
+    const k = input.key;
+    if (k === "+" || k === "=" || k === "Add") {
+      e.preventDefault();
+      stepZoom(1);
+    } else if (k === "-" || k === "_" || k === "Subtract") {
+      e.preventDefault();
+      stepZoom(-1);
+    } else if (k === "0") {
+      e.preventDefault();
+      stepZoom(0);
+    }
+  });
+}
+
+// ---- window ----
 
 function layout() {
   if (!win) return;
@@ -33,6 +94,7 @@ function sendState() {
     title: wc.getTitle() || config.name,
     canBack: wc.navigationHistory.canGoBack(),
     canForward: wc.navigationHistory.canGoForward(),
+    zoom,
   });
 }
 
@@ -62,11 +124,23 @@ function setupContent() {
     return { action: "deny" };
   });
 
+  // zoom: keys, ctrl+wheel, touchpad pinch
+  hookZoomKeys(wc);
+  wc.setVisualZoomLevelLimits(1, 3);
+  wc.on("zoom-changed", (_e, direction) => stepZoom(direction === "in" ? 1 : -1));
+
+  // chromium resets zoom per host, so re-apply on every nav
+  const onNav = () => {
+    wc.setZoomFactor(zoom);
+    sendState();
+  };
+
   wc.on("page-title-updated", (_e, title) => {
     win.setTitle(title);
     sendState();
   });
-  wc.on("did-navigate", sendState);
+  wc.on("did-navigate", onNav);
+  wc.on("dom-ready", onNav);
   wc.on("did-navigate-in-page", sendState);
   wc.on("did-finish-load", sendState);
 
@@ -80,7 +154,18 @@ function setupContent() {
 
 function createWindow() {
   Menu.setApplicationMenu(null);
-  win = new BaseWindow({ width: 1200, height: 800, title: config.name, backgroundColor: "#111318" });
+  loadZoom();
+
+  const iconFile = path.join(__dirname, "icon.ico");
+  const icon = fs.existsSync(iconFile) ? nativeImage.createFromPath(iconFile) : null;
+
+  win = new BaseWindow({
+    width: 1200,
+    height: 800,
+    title: config.name,
+    backgroundColor: "#111318",
+    ...(icon ? { icon } : {}),
+  });
 
   header = new WebContentsView({
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true },
@@ -92,6 +177,7 @@ function createWindow() {
 
   header.webContents.loadFile(path.join(__dirname, "header.html"));
   header.webContents.on("did-finish-load", sendState);
+  hookZoomKeys(header.webContents); // keys work even if header has focus
 
   layout();
   for (const ev of ["resize", "maximize", "unmaximize", "enter-full-screen", "leave-full-screen"]) {
@@ -119,6 +205,7 @@ ipcMain.on("nav", (e, action) => {
   if (action === "back" && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
   if (action === "forward" && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
   if (action === "reload") wc.reload();
+  if (action === "zoom-reset") stepZoom(0);
 });
 
 if (!app.requestSingleInstanceLock()) {

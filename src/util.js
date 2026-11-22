@@ -10,16 +10,9 @@ function workDir(cfg, platform) {
   return path.join(os.homedir(), ".appweb", "work", `${cfg.slug}-${platform}`);
 }
 
-// run a shell command, stream output, throw if it flops
-function run(cmd, { cwd, env } = {}) {
-  console.log(`\n> ${cmd}`);
-  const r = spawnSync(cmd, {
-    cwd,
-    shell: true,
-    stdio: "inherit",
-    env: { ...process.env, ...env },
-  });
-  if (r.status !== 0) throw new Error(`Command failed (${r.status}): ${cmd}`);
+// one log file per build, handy when stuff blows up
+function logPath(cfg, platform) {
+  return path.join(os.homedir(), ".appweb", "logs", `${cfg.slug}-${platform}-${Date.now()}.log`);
 }
 
 // run quietly and grab the output
@@ -28,4 +21,4 @@ function capture(cmd, args = [], shell = false) {
   return { ok: r.status === 0, out: (r.stdout || "") + (r.stderr || "") };
 }
 
-module.exports = { isWin, TEMPLATES, workDir, run, capture };
+module.exports = { isWin, TEMPLATES, workDir, logPath, capture };

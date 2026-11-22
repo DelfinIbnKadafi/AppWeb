@@ -1,10 +1,14 @@
 {
   "name": "appweb",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Turn any website into a single-site desktop (.exe) or Android (.apk) app. CLI only.",
   "bin": { "appweb": "bin/appweb.js" },
   "engines": { "node": ">=18" },
   "files": ["bin", "src", "templates"],
-  "dependencies": { "prompts": "^2.4.2" },
+  "dependencies": {
+    "jimp": "0.22.12",
+    "png-to-ico": "2.1.8",
+    "prompts": "^2.4.2"
+  },
   "license": "MIT"
 }
