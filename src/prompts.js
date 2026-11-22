@@ -36,6 +36,16 @@ async function askConfig(preset = {}) {
         },
       },
       {
+        type: has("icon") ? null : "text",
+        name: "icon",
+        message: "App Icon (optional; PNG or JPG)",
+        initial: "",
+        validate: (v) => {
+          const icon = String(v || "").trim();
+          return !icon || /\.(png|jpe?g)$/i.test(icon) ? true : "Icon must be a .png or .jpg file";
+        },
+      },
+      {
         type: has("block") ? null : "confirm",
         name: "block",
         message: "Force Block Another Domain? (default no)",

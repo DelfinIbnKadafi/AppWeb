@@ -88,6 +88,7 @@ async function build(args) {
     name: args.name,
     domain: args.domain,
     entry: args.entry,
+    icon: args.icon,
     block: args.block ? true : args["no-block"] ? false : undefined,
     platform: args.platform,
   };
@@ -104,7 +105,8 @@ async function build(args) {
   const platforms = parsePlatforms(answers.platform);
   const outDir = path.resolve(args.out || "dist");
   const noBuild = !!args["no-build"];
-  const icon = args.icon ? await prepareIcon(args.icon) : null;
+  const iconInput = String(answers.icon || "").trim();
+  const icon = iconInput ? await prepareIcon(iconInput) : null;
 
   console.log(`\nBuilding "${cfg.name}" -> ${cfg.entry}`);
   console.log(`Block other domains: ${cfg.blockOtherDomains ? "yes" : "no"}`);
